@@ -68,12 +68,17 @@ export function loadNotes(): Note[] {
   }
 }
 
-export function saveNotes(notes: Note[]): void {
+/**
+ * Persist notes. Returns false when storage is full or unavailable
+ * (quota exceeded, private browsing) so the caller can warn the user
+ * rather than let edits silently exist only in memory.
+ */
+export function saveNotes(notes: Note[]): boolean {
   try {
     localStorage.setItem(NOTES_KEY, JSON.stringify(notes))
+    return true
   } catch {
-    // Storage may be full or unavailable (private browsing); the app keeps
-    // working from memory, so swallow rather than crash mid-keystroke.
+    return false
   }
 }
 
@@ -96,11 +101,12 @@ export function loadSettings(): Settings {
   }
 }
 
-export function saveSettings(settings: Settings): void {
+export function saveSettings(settings: Settings): boolean {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+    return true
   } catch {
-    // Same rationale as saveNotes.
+    return false
   }
 }
 

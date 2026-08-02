@@ -10,7 +10,16 @@ import { AIPanel } from './components/AIPanel'
 import { SettingsModal } from './components/SettingsModal'
 
 export default function App() {
-  const { notes, addNote, updateNote, deleteNote, togglePin, replaceAll, mergeImported } = useNotes()
+  const {
+    notes,
+    persistenceError,
+    addNote,
+    updateNote,
+    deleteNote,
+    togglePin,
+    replaceAll,
+    mergeImported,
+  } = useNotes()
   const { settings, updateSettings } = useSettings()
   useTheme(settings.theme)
 
@@ -21,6 +30,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(true)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  const openSettings = useCallback(() => setSettingsOpen(true), [])
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
 
   const selected = useMemo(
     () => notes.find((n) => n.id === selectedId) ?? null,
@@ -72,12 +84,20 @@ export default function App() {
         onTagChange={setActiveTag}
         onSelect={setSelectedId}
         onNewNote={handleNewNote}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={openSettings}
       />
 
       <main className="main">
+        {persistenceError && (
+          <div className="persistence-banner" role="alert">
+            ⚠ {persistenceError}
+          </div>
+        )}
         {selected ? (
           <Editor
+            // Remount per note so per-note editor state (an in-progress tag
+            // draft, scroll position) never leaks across a selection change.
+            key={selected.id}
             note={selected}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
@@ -119,7 +139,7 @@ export default function App() {
           }
           onReplaceContent={(content) => selected && updateNote(selected.id, { content })}
           onSelectNote={setSelectedId}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={openSettings}
         />
       )}
 
@@ -133,7 +153,7 @@ export default function App() {
             replaceAll([])
             setSelectedId(null)
           }}
-          onClose={() => setSettingsOpen(false)}
+          onClose={closeSettings}
         />
       )}
     </div>

@@ -4,13 +4,20 @@ import { createNote, loadNotes, saveNotes } from '../lib/storage'
 
 const SAVE_DEBOUNCE_MS = 250
 
+export const PERSISTENCE_ERROR =
+  'Could not save to this browser’s storage — recent changes exist only in memory. ' +
+  'Export your notes from Settings to avoid losing them.'
+
 export interface NotesApi {
   notes: Note[]
+  /** Set when a write to localStorage failed (quota, private browsing). */
+  persistenceError: string | null
   addNote: (partial?: Partial<Note>) => Note
   updateNote: (id: string, patch: Partial<Omit<Note, 'id' | 'createdAt'>>) => void
   deleteNote: (id: string) => void
   togglePin: (id: string) => void
   replaceAll: (notes: Note[]) => void
+  /** Adds notes whose ids are not already present. Returns how many were added. */
   mergeImported: (imported: Note[]) => number
 }
 
@@ -21,13 +28,18 @@ export interface NotesApi {
  */
 export function useNotes(): NotesApi {
   const [notes, setNotes] = useState<Note[]>(() => loadNotes())
+  const [persistenceError, setPersistenceError] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Mirrors the last rendered notes so deferred work (the debounced save) and
+  // event handlers can read current state without stale-closure bugs.
   const latest = useRef(notes)
 
   useEffect(() => {
     latest.current = notes
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => saveNotes(latest.current), SAVE_DEBOUNCE_MS)
+    timer.current = setTimeout(() => {
+      setPersistenceError(saveNotes(latest.current) ? null : PERSISTENCE_ERROR)
+    }, SAVE_DEBOUNCE_MS)
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
@@ -71,17 +83,30 @@ export function useNotes(): NotesApi {
     setNotes(next)
   }, [])
 
-  /** Merge imported notes; existing ids win. Returns how many were added. */
   const mergeImported = useCallback((imported: Note[]): number => {
-    let added = 0
-    setNotes((prev) => {
-      const existing = new Set(prev.map((n) => n.id))
-      const fresh = imported.filter((n) => !existing.has(n.id))
-      added = fresh.length
-      return [...fresh, ...prev]
-    })
-    return added
+    // The count is derived here rather than inside the state updater: React
+    // may defer or replay an updater, so a value assigned in one is not
+    // readable by the caller. Reading the ref is safe in an event handler,
+    // where the latest render has already committed.
+    const existing = new Set(latest.current.map((n) => n.id))
+    const fresh = imported.filter((n) => !existing.has(n.id))
+    if (fresh.length > 0) {
+      setNotes((prev) => {
+        const seen = new Set(prev.map((n) => n.id))
+        return [...fresh.filter((n) => !seen.has(n.id)), ...prev]
+      })
+    }
+    return fresh.length
   }, [])
 
-  return { notes, addNote, updateNote, deleteNote, togglePin, replaceAll, mergeImported }
+  return {
+    notes,
+    persistenceError,
+    addNote,
+    updateNote,
+    deleteNote,
+    togglePin,
+    replaceAll,
+    mergeImported,
+  }
 }

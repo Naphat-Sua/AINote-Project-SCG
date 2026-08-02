@@ -81,16 +81,41 @@ Terms combine with AND semantics for search (every term must match), and ties br
 
 All markdown → HTML goes through `renderMarkdown`, which is `marked` (GFM, breaks) piped into `DOMPurify.sanitize`. Tests assert that `<script>`, inline event handlers, and `javascript:` URLs are stripped. AI output is rendered through the same path, so a hostile or confused model response cannot execute code.
 
+## Reliability
+
+Three failure modes get explicit handling, because for a notes app the worst
+outcome is losing writing:
+
+- **Storage rejects a write** (quota exceeded, private browsing). `saveNotes`
+  returns a boolean rather than swallowing the error; `useNotes` surfaces it as
+  a banner telling the user their changes are memory-only and to export. Silent
+  failure here would look identical to working software right up until the tab
+  closes.
+- **A render throws.** `ErrorBoundary` catches it and shows a recovery screen
+  instead of a white page, noting that persisted notes are unaffected.
+- **Corrupt or foreign data on load.** Every read path validates and normalizes;
+  unparseable storage degrades to an empty list rather than a crash loop.
+
+### A note on `mergeImported`
+
+The import count is computed *before* `setNotes`, from a ref mirroring the last
+committed state — not assigned inside the state updater. React may defer or
+replay an updater, so a value written inside one is not readable by the caller;
+doing that made the UI always report "Imported 0 new notes." There is a
+regression test for it in `useNotes.test.ts`.
+
 ## Testing strategy
 
 | Layer      | What is covered                                                        |
 | ---------- | ---------------------------------------------------------------------- |
-| storage    | round-trips, corruption recovery, normalization, import validation     |
-| search     | ranking order, AND/OR semantics, tag matching, fallbacks, limits       |
-| markdown   | GFM rendering, XSS stripping, excerpt/word-count edge cases            |
-| ai         | tag-response parsing variants, context budgeting, error mapping        |
-| format     | relative-time buckets                                                  |
-| App (RTL)  | first-launch state, create/edit/search flows, AI key gating, settings  |
+| storage       | round-trips, corruption recovery, normalization, import validation     |
+| search        | ranking order, AND/OR semantics, tag matching, fallbacks, limits       |
+| markdown      | GFM rendering, XSS stripping, excerpt/word-count edge cases            |
+| ai            | tag-response parsing variants, context budgeting, error mapping        |
+| format        | relative-time buckets                                                  |
+| useNotes      | add/update/delete/pin, import counting and id-collision handling       |
+| ErrorBoundary | passthrough when healthy, recovery screen on a render throw            |
+| App (RTL)     | first-launch state, create/edit/search flows, AI key gating, settings, Escape-to-close, per-note editor isolation |
 
 The AI network layer itself is intentionally untested at the unit level (it is a thin pass-through to the SDK); its pure helpers — which contain the logic that can actually break — are extracted and tested.
 

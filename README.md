@@ -13,7 +13,7 @@ No backend. No account. No telemetry. Your notes and your API key never touch an
 - 🔍 Instant full-text search with relevance ranking (title > tags > content)
 - 🏷 Tagging with one-click filters and tag autocomplete from your vocabulary
 - 📌 Pinned notes, relative timestamps, word counts
-- 💾 Autosave to localStorage (debounced, flushed on page hide)
+- 💾 Autosave to localStorage (debounced, flushed on page hide) — and a visible warning if storage ever rejects a write, so edits are never silently lost
 - 📤 JSON export / import with validation and merge-on-import
 - 🌗 Light / dark / system theme
 - ⌨️ Shortcuts: `Ctrl/Cmd+K` search, `Ctrl/Cmd+Alt+N` new note, `Ctrl/Cmd+Enter` to ask AI
@@ -79,7 +79,7 @@ More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 ## Development
 
 - **Stack**: React 19, TypeScript (strict), Vite, Vitest + Testing Library, ESLint (typescript-eslint + react-hooks), marked + DOMPurify, `@anthropic-ai/sdk`.
-- **Tests**: 60+ assertions across storage, search ranking, markdown sanitization, AI response parsing, and app-level smoke tests. `npm test`.
+- **Tests**: 71 tests across storage, search ranking, markdown sanitization, AI response parsing, note-state hooks, the error boundary, and app-level user flows. `npm test`.
 - **CI**: GitHub Actions runs typecheck, lint, tests, and build on every push and PR.
 
 ## License

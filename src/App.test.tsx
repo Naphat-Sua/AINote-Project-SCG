@@ -54,4 +54,28 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Add API key' }))
     expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
   })
+
+  it('closes settings with the Escape key', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Add API key' }))
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument()
+  })
+
+  it('does not carry an unfinished tag draft across notes', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: /\+ New$/i }))
+    await user.type(screen.getByLabelText('Note title'), 'Note A')
+    await user.type(screen.getByLabelText('Add a tag'), 'half-typed')
+
+    // Switching notes must not leave the draft sitting in the new note's input.
+    await user.click(screen.getByRole('button', { name: /\+ New$/i }))
+    expect(screen.getByLabelText('Add a tag')).toHaveValue('')
+  })
 })

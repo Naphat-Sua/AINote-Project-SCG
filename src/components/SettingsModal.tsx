@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import type { Settings } from '../types'
 import { AVAILABLE_MODELS } from '../lib/ai'
 import { exportNotes, importNotes } from '../lib/storage'
@@ -17,6 +17,18 @@ export function SettingsModal({ settings, notes, onUpdate, onImport, onDeleteAll
   const [showKey, setShowKey] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Escape closes the dialog, and focus moves into it on open so keyboard
+  // and screen-reader users are not left behind on the page underneath.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    dialogRef.current?.focus()
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   const handleExport = () => {
     const blob = new Blob([exportNotes(notes)], { type: 'application/json' })
@@ -50,10 +62,12 @@ export function SettingsModal({ settings, notes, onUpdate, onImport, onDeleteAll
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
