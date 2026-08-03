@@ -1,6 +1,7 @@
 import type { Note } from '../types'
 
-function tokenize(text: string): string[] {
+/** Split a query (or note text) into comparable lowercase terms. */
+export function tokenize(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[^\p{L}\p{N}#]+/u)

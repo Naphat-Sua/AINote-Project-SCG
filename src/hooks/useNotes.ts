@@ -15,6 +15,8 @@ export interface NotesApi {
   addNote: (partial?: Partial<Note>) => Note
   updateNote: (id: string, patch: Partial<Omit<Note, 'id' | 'createdAt'>>) => void
   deleteNote: (id: string) => void
+  /** Re-insert a deleted note at its original position (undo). */
+  restoreNote: (note: Note, index: number) => void
   togglePin: (id: string) => void
   replaceAll: (notes: Note[]) => void
   /** Adds notes whose ids are not already present. Returns how many were added. */
@@ -73,6 +75,15 @@ export function useNotes(): NotesApi {
     setNotes((prev) => prev.filter((n) => n.id !== id))
   }, [])
 
+  const restoreNote = useCallback((note: Note, index: number) => {
+    setNotes((prev) => {
+      if (prev.some((n) => n.id === note.id)) return prev
+      const next = [...prev]
+      next.splice(Math.max(0, Math.min(index, next.length)), 0, note)
+      return next
+    })
+  }, [])
+
   const togglePin = useCallback((id: string) => {
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, pinned: !n.pinned } : n)),
@@ -105,6 +116,7 @@ export function useNotes(): NotesApi {
     addNote,
     updateNote,
     deleteNote,
+    restoreNote,
     togglePin,
     replaceAll,
     mergeImported,

@@ -47,6 +47,29 @@ describe('excerpt', () => {
   it('returns empty for empty content', () => {
     expect(excerpt('')).toBe('')
   })
+
+  it('slides the window to a match that falls outside the default excerpt', () => {
+    const text = `${'filler '.repeat(40)}needle tail`
+    const snippet = excerpt(text, 60, ['needle'])
+    expect(snippet).toContain('needle')
+    expect(snippet.startsWith('…')).toBe(true)
+  })
+
+  it('keeps the window at the start when the match is already visible', () => {
+    const text = `needle ${'filler '.repeat(40)}`
+    const snippet = excerpt(text, 60, ['needle'])
+    expect(snippet.startsWith('needle')).toBe(true)
+  })
+
+  it('ignores terms that do not appear', () => {
+    const text = 'alpha '.repeat(40)
+    expect(excerpt(text, 40, ['zzz']).startsWith('alpha')).toBe(true)
+  })
+
+  it('strips a leading # from tag terms when locating the window', () => {
+    const text = `${'filler '.repeat(40)}budget tail`
+    expect(excerpt(text, 60, ['#budget'])).toContain('budget')
+  })
 })
 
 describe('countWords', () => {

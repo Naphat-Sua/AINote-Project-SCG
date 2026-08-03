@@ -1,7 +1,16 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { Note, ViewMode } from '../types'
 import { countWords, renderMarkdown } from '../lib/markdown'
 import { formatRelativeTime } from '../lib/format'
+import {
+  continueList,
+  indent,
+  insertLink,
+  outdent,
+  toggleWrap,
+  type TextSelection,
+} from '../lib/editing'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 
 interface EditorProps {
   note: Note
@@ -18,8 +27,82 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: 'preview', label: 'Preview' },
 ]
 
+/** Keeps markdown parsing off the keystroke path without feeling laggy. */
+const PREVIEW_DEBOUNCE_MS = 120
+
 export function Editor({ note, viewMode, onViewModeChange, onChange, onTogglePin, onDelete }: EditorProps) {
   const [tagDraft, setTagDraft] = useState('')
+  const contentRef = useRef<HTMLTextAreaElement>(null)
+  const pendingSelection = useRef<[number, number] | null>(null)
+
+  // The whole `dangerouslySetInnerHTML` object is memoized, not just the HTML
+  // string: React re-applies innerHTML when that prop object changes identity,
+  // so a fresh literal each render rebuilds the entire preview subtree on every
+  // keystroke even when the markup is byte-identical.
+  const debouncedContent = useDebouncedValue(note.content, PREVIEW_DEBOUNCE_MS)
+  const previewMarkup = useMemo(
+    () => ({ __html: renderMarkdown(debouncedContent) }),
+    [debouncedContent],
+  )
+
+  // A shortcut rewrites the whole value, so the caret has to be restored after
+  // React commits the controlled update.
+  useEffect(() => {
+    const selection = pendingSelection.current
+    if (!selection) return
+    pendingSelection.current = null
+    contentRef.current?.setSelectionRange(selection[0], selection[1])
+  })
+
+  const applyEdit = (next: TextSelection | null): boolean => {
+    if (!next) return false
+    pendingSelection.current = [next.selectionStart, next.selectionEnd]
+    onChange({ content: next.value })
+    return true
+  }
+
+  const onContentKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    const el = event.currentTarget
+    const state: TextSelection = {
+      value: el.value,
+      selectionStart: el.selectionStart,
+      selectionEnd: el.selectionEnd,
+    }
+    const meta = event.metaKey || event.ctrlKey
+
+    if (meta && !event.altKey) {
+      switch (event.key.toLowerCase()) {
+        case 'b':
+          event.preventDefault()
+          applyEdit(toggleWrap(state, '**'))
+          return
+        case 'i':
+          event.preventDefault()
+          applyEdit(toggleWrap(state, '*'))
+          return
+        // Inside the editor Cmd+K means "link". preventDefault also tells the
+        // app-level shortcut handler to leave this event alone.
+        case 'k':
+          event.preventDefault()
+          applyEdit(insertLink(state))
+          return
+      }
+    }
+
+    if (event.key === 'Tab') {
+      event.preventDefault()
+      applyEdit(event.shiftKey ? outdent(state) : indent(state))
+      return
+    }
+
+    if (event.key === 'Enter' && !meta && !event.shiftKey) {
+      if (applyEdit(continueList(state))) event.preventDefault()
+      return
+    }
+
+    // Tab is captured for indentation, so Escape is the keyboard route out.
+    if (event.key === 'Escape') el.blur()
+  }
 
   const addTag = () => {
     const tag = tagDraft.trim().toLowerCase().replace(/^#/, '').replace(/\s+/g, '-')
@@ -112,22 +195,31 @@ export function Editor({ note, viewMode, onViewModeChange, onChange, onTogglePin
       <div className={`editor-body mode-${viewMode}`}>
         {showEditor && (
           <textarea
+            ref={contentRef}
             className="editor-content"
-            placeholder="Write in markdown…"
+            placeholder="Write in markdown…  Ctrl/Cmd+B bold · Ctrl/Cmd+I italic · Ctrl/Cmd+K link · Tab indent"
             value={note.content}
             onChange={(e) => onChange({ content: e.target.value })}
+            onKeyDown={onContentKeyDown}
             aria-label="Note content"
+            aria-describedby="editor-shortcut-help"
             spellCheck
           />
         )}
         {showPreview && (
           <div
             className="markdown-preview"
-            // Rendered output is sanitized with DOMPurify in renderMarkdown.
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(note.content) }}
+            // Sanitized with DOMPurify in renderMarkdown.
+            dangerouslySetInnerHTML={previewMarkup}
           />
         )}
       </div>
+
+      <p id="editor-shortcut-help" className="visually-hidden">
+        Formatting shortcuts: Control or Command plus B for bold, I for italic, K for link.
+        Tab indents and Shift Tab outdents. Enter continues a markdown list. Press Escape to
+        move focus out of the editor.
+      </p>
     </section>
   )
 }

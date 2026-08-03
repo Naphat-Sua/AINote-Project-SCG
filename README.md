@@ -10,13 +10,15 @@ No backend. No account. No telemetry. Your notes and your API key never touch an
 
 **Notes**
 - ✍️ Markdown editing with live preview (edit / split / preview modes), GFM tables and task lists
-- 🔍 Instant full-text search with relevance ranking (title > tags > content)
+- ⚡ Editor shortcuts: bold, italic, link, Tab/Shift+Tab indent, and Enter to continue or end a list (ordered lists renumber, task lists carry over unchecked)
+- ↩️ Undo for deletion — deleting is instant with a 9-second Undo, not a blocking confirm dialog
+- 🔍 Instant full-text search with relevance ranking (title > tags > content), highlighted matches, and snippets that follow the match into the body of long notes
 - 🏷 Tagging with one-click filters and tag autocomplete from your vocabulary
 - 📌 Pinned notes, relative timestamps, word counts
 - 💾 Autosave to localStorage (debounced, flushed on page hide) — and a visible warning if storage ever rejects a write, so edits are never silently lost
 - 📤 JSON export / import with validation and merge-on-import
 - 🌗 Light / dark / system theme
-- ⌨️ Shortcuts: `Ctrl/Cmd+K` search, `Ctrl/Cmd+Alt+N` new note, `Ctrl/Cmd+Enter` to ask AI
+- ♿ Keyboard and screen-reader support: focus-trapped dialogs, Escape to close, live regions for streaming AI output, and Escape to leave the Tab-capturing editor
 
 **AI (bring your own Anthropic API key)**
 - 📄 **Summarize** — tight paragraph + key bullets, streamed live
@@ -25,6 +27,18 @@ No backend. No account. No telemetry. Your notes and your API key never touch an
 - 🏷 **Suggest tags** — 2–5 tags, preferring your existing tag vocabulary
 - 💬 **Ask your notes** — question answering across all notes with cited sources; relevance-ranked context selection keeps requests small
 - 🛑 Streaming output with a Stop button, friendly error messages, model picker (Opus 5 / Sonnet 5 / Haiku 4.5)
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl/Cmd+K` | Focus search — or, inside the editor, insert a link |
+| `Ctrl/Cmd+Alt+N` | New note |
+| `Ctrl/Cmd+B` / `Ctrl/Cmd+I` | Bold / italic |
+| `Tab` / `Shift+Tab` | Indent / outdent (`Escape` to move focus out of the editor) |
+| `Enter` | Continue a markdown list; again on an empty item to end it |
+| `Ctrl/Cmd+Enter` | Ask your notes (AI panel) |
+| `Escape` | Close the settings dialog |
 
 ## Quick start
 
@@ -79,7 +93,7 @@ More detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 ## Development
 
 - **Stack**: React 19, TypeScript (strict), Vite, Vitest + Testing Library, ESLint (typescript-eslint + react-hooks), marked + DOMPurify, `@anthropic-ai/sdk`.
-- **Tests**: 71 tests across storage, search ranking, markdown sanitization, AI response parsing, note-state hooks, the error boundary, and app-level user flows. `npm test`.
+- **Tests**: 129 tests across storage, search ranking, markdown sanitization and snippets, AI response parsing, editor text transforms, search highlighting, note-state hooks, the error boundary, and app-level user flows. `npm test`.
 - **CI**: GitHub Actions runs typecheck, lint, tests, and build on every push and PR.
 
 ## License

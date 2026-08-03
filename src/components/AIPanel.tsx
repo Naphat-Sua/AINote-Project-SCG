@@ -194,7 +194,7 @@ export function AIPanel({
         )}
 
         {output && (
-          <div className="ai-output">
+          <div className="ai-output" aria-live="polite" aria-busy={busy !== null}>
             <div
               className="markdown-preview compact"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(output) }}
@@ -257,7 +257,7 @@ export function AIPanel({
           </button>
         </div>
         {answer && (
-          <div className="ai-output">
+          <div className="ai-output" aria-live="polite" aria-busy={busy !== null}>
             <div
               className="markdown-preview compact"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(answer) }}

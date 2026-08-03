@@ -19,11 +19,39 @@ export function SettingsModal({ settings, notes, onUpdate, onImport, onDeleteAll
   const fileRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  // Escape closes the dialog, and focus moves into it on open so keyboard
-  // and screen-reader users are not left behind on the page underneath.
+  // Escape closes the dialog, focus moves into it on open, and Tab cycles
+  // within it — otherwise keyboard users tab straight out of an open modal
+  // into the page behind it.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const root = dialogRef.current
+      if (!root) return
+      const focusable = [
+        ...root.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+        // `offsetParent` is unreliable under jsdom, so filter on the inline
+        // style that actually hides the file input.
+      ].filter((el) => !el.hasAttribute('disabled') && el.style.display !== 'none')
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+
+      if (event.shiftKey && (active === first || active === root)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     dialogRef.current?.focus()

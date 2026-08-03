@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ViewMode } from './types'
+import type { Note, ViewMode } from './types'
 import { useNotes } from './hooks/useNotes'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
@@ -8,6 +8,7 @@ import { Sidebar } from './components/Sidebar'
 import { Editor } from './components/Editor'
 import { AIPanel } from './components/AIPanel'
 import { SettingsModal } from './components/SettingsModal'
+import { Toast } from './components/Toast'
 
 export default function App() {
   const {
@@ -16,6 +17,7 @@ export default function App() {
     addNote,
     updateNote,
     deleteNote,
+    restoreNote,
     togglePin,
     replaceAll,
     mergeImported,
@@ -29,6 +31,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('edit')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(true)
+  const [undoDelete, setUndoDelete] = useState<{ note: Note; index: number } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const openSettings = useCallback(() => setSettingsOpen(true), [])
@@ -48,17 +51,31 @@ export default function App() {
     setViewMode('edit')
   }, [addNote])
 
+  // Deleting is instant and offers an undo, rather than gating on a blocking
+  // confirm dialog: less friction, and actually recoverable if it was a slip.
   const handleDelete = useCallback(() => {
     if (!selected) return
-    const label = selected.title || 'this untitled note'
-    if (!window.confirm(`Delete "${label}"?`)) return
+    const index = notes.findIndex((n) => n.id === selected.id)
     const remaining = notes.filter((n) => n.id !== selected.id)
     deleteNote(selected.id)
     setSelectedId(remaining[0]?.id ?? null)
+    setUndoDelete({ note: selected, index })
   }, [selected, notes, deleteNote])
+
+  const handleUndoDelete = useCallback(() => {
+    if (!undoDelete) return
+    restoreNote(undoDelete.note, undoDelete.index)
+    setSelectedId(undoDelete.note.id)
+    setUndoDelete(null)
+  }, [undoDelete, restoreNote])
+
+  const dismissUndo = useCallback(() => setUndoDelete(null), [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // The editor claims some of these (Cmd+K inserts a link) and marks the
+      // event handled; never steal a shortcut a focused control already used.
+      if (event.defaultPrevented) return
       const meta = event.metaKey || event.ctrlKey
       if (meta && event.key.toLowerCase() === 'k') {
         event.preventDefault()
@@ -140,6 +157,15 @@ export default function App() {
           onReplaceContent={(content) => selected && updateNote(selected.id, { content })}
           onSelectNote={setSelectedId}
           onOpenSettings={openSettings}
+        />
+      )}
+
+      {undoDelete && (
+        <Toast
+          message={`Deleted “${undoDelete.note.title || 'Untitled'}”`}
+          actionLabel="Undo"
+          onAction={handleUndoDelete}
+          onDismiss={dismissUndo}
         />
       )}
 
